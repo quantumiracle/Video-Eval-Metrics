@@ -55,6 +55,20 @@ if __name__ == "__main__":
     print(f"Score: {score}")
 ```
 
+### Expected Folder Structure
+
+The evaluation scripts expect a specific folder structure where the input sample videos and the generated videos have corresponding filenames:
+
+```
+folder1/                           folder2/
+├── video1.mp4                     ├── video1.mp4
+├── video2.mp4                     ├── video2.mp4
+├── video3.mp4                     ├── video3.mp4
+└── ...                            └── ...
+```
+
+The scripts will automatically match and compare videos with the same filename from both folders. The number of videos in both folders must be the same, and they must be aligned by name.
+
 ## Requirements
 
 - PyTorch
