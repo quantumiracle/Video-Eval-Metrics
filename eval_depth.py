@@ -144,7 +144,6 @@ def calculate_depth_si_rmse(folder1, folder2):
                 except Exception as e:
                     print(f"Error processing frame: {e}")
                     continue
-        print('frame_si_rmse_scores: ', frame_si_rmse_scores)
         # Average si-RMSE across frames (if we have any valid scores)
         if frame_si_rmse_scores:
             video_si_rmse = np.mean(frame_si_rmse_scores)
