@@ -9,7 +9,6 @@ import torch.nn.functional as F
 # Import align_video_shapes function
 from eval_edge import align_video_shapes
 
-
 def scale_invariant_rmse(pred_depth, gt_depth, mask=None):
     """
     Calculate scale-invariant RMSE between predicted and ground truth depth maps.
@@ -106,37 +105,52 @@ def calculate_depth_si_rmse(folder1, folder2):
         for f1, f2 in zip(frames1, frames2):
             # Process each frame for depth estimation
             with torch.no_grad():
-                # Convert frames to RGB format expected by the model (HWC → CHW)
-                f1_rgb = f1.permute(2, 0, 1).float() / 255.0  # Now (C, H, W)
-                f2_rgb = f2.permute(2, 0, 1).float() / 255.0  # Now (C, H, W)
-                
-                # Get depth predictions
-                inputs1 = processor(images=f1_rgb, return_tensors="pt").to(device)
-                inputs2 = processor(images=f2_rgb, return_tensors="pt").to(device)
-                
-                outputs1 = model(**inputs1)
-                outputs2 = model(**inputs2)
-                
-                # Post-process depths to original size
-                original_size = (f1.shape[0], f1.shape[1])  # (H, W)
-                processed1 = processor.post_process_depth_estimation(
-                    outputs1, target_sizes=[original_size]
-                )
-                processed2 = processor.post_process_depth_estimation(
-                    outputs2, target_sizes=[original_size]
-                )
-                
-                # Get the predicted depths
-                depth1 = processed1[0]["predicted_depth"]
-                depth2 = processed2[0]["predicted_depth"]
-                
-                # Calculate si-RMSE
-                score = scale_invariant_rmse(depth1, depth2)
-                frame_si_rmse_scores.append(score.item())
-        
-        # Average si-RMSE across frames
-        video_si_rmse = np.mean(frame_si_rmse_scores)
-        si_rmse_scores.append(video_si_rmse)
+                try:
+                    # CHW to HWC
+                    f1_np = f1.permute(1, 2, 0).cpu().numpy().astype(np.uint8)
+                    f2_np = f2.permute(1, 2, 0).cpu().numpy().astype(np.uint8)
+                    
+                    # Convert to PIL images
+                    f1_pil = Image.fromarray(f1_np)
+                    f2_pil = Image.fromarray(f2_np)
+                    
+                    # Process with depth model
+                    inputs1 = processor(images=f1_pil, return_tensors="pt").to(device)
+                    inputs2 = processor(images=f2_pil, return_tensors="pt").to(device)
+                    
+                    outputs1 = model(**inputs1)
+                    outputs2 = model(**inputs2)
+                    
+                    # Post-process depths to original size
+                    original_size = (f1.shape[0], f1.shape[1])  # (H, W)
+                    processed1 = processor.post_process_depth_estimation(
+                        outputs1, target_sizes=[original_size]
+                    )
+                    processed2 = processor.post_process_depth_estimation(
+                        outputs2, target_sizes=[original_size]
+                    )
+                    
+                    # Get the predicted depths
+                    depth1 = processed1[0]["predicted_depth"]
+                    depth2 = processed2[0]["predicted_depth"]
+                    
+                    # Calculate si-RMSE
+                    score = scale_invariant_rmse(depth1, depth2)
+                    # Only add valid scores (not NaN)
+                    if torch.isnan(score).item():
+                        print(f"Warning: NaN score detected for a frame")
+                    else:
+                        frame_si_rmse_scores.append(score.item())
+                except Exception as e:
+                    print(f"Error processing frame: {e}")
+                    continue
+        print('frame_si_rmse_scores: ', frame_si_rmse_scores)
+        # Average si-RMSE across frames (if we have any valid scores)
+        if frame_si_rmse_scores:
+            video_si_rmse = np.mean(frame_si_rmse_scores)
+            si_rmse_scores.append(video_si_rmse)
+        else:
+            print(f"Warning: No valid frames to calculate si-RMSE for {file1} and {file2}")
     
     return sum(si_rmse_scores) / len(si_rmse_scores) if si_rmse_scores else 0.0
 
