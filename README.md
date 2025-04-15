@@ -2,6 +2,12 @@
 
 This repository contains a collection of metrics designed to evaluate video generation alignment between input sample videos and generated videos. The metrics focus on different aspects of visual alignment to provide a comprehensive evaluation framework.
 
+## Installation
+
+```bash
+pip install -r requirements.txt
+```
+
 ## Metrics Overview
 
 ### Blur SSIM (Structural Similarity Index Measure)
