@@ -9,43 +9,53 @@ import torch.nn.functional as F
 # Import align_video_shapes function
 from eval_edge import align_video_shapes
 
-def scale_invariant_rmse(pred_depth, gt_depth, mask=None):
+
+def scale_invariant_rmse(pred_depth: torch.Tensor, gt_depth: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
     """
-    Calculate scale-invariant RMSE between predicted and ground truth depth maps.
-    
+    Compute scale-invariant RMSE between predicted and ground-truth depth maps.
+
     Args:
-        pred_depth: Predicted depth map
-        gt_depth: Ground truth depth map
-        mask: Optional mask for valid depth values
-        
+        pred_depth (torch.Tensor): Predicted depth map, shape (..., H, W)
+        gt_depth (torch.Tensor): Ground-truth depth map, shape (..., H, W)
+        mask (torch.Tensor, optional): Optional binary mask (same shape) to exclude invalid regions.
+
     Returns:
-        Scale-invariant RMSE value
+        torch.Tensor: The scalar si-RMSE value.
+
+    Formula (Eigen et al., 2014):
+        Let D_p be the predicted depth, D_g the ground-truth depth.
+        Define:
+            d_i = log(D_p_i) - log(D_g_i)
+            n = number of valid pixels
+
+        Then:
+            si-RMSE = sqrt( (1/n) * sum_i d_i^2 - (1/n^2) * (sum_i d_i)^2 )
+
+        This penalizes relative errors and is invariant to global scale.
     """
-    if mask is None:
-        mask = torch.ones_like(gt_depth, dtype=torch.bool)
+    # Flatten for simplicity
+    pred = pred_depth.flatten()
+    gt = gt_depth.flatten()
+
+    if mask is not None:
+        mask = mask.flatten()
+        pred = pred[mask]
+        gt = gt[mask]
+
+    # Avoid log(0) or negative depths
+    eps = 1e-8
+    pred = torch.clamp(pred, min=eps)
+    gt = torch.clamp(gt, min=eps)
+
+    log_diff = torch.log(pred) - torch.log(gt)
+    n = log_diff.numel()
+
+    mse = torch.mean(log_diff ** 2)             # (1/n) * sum_i d_i^2
+    square_mean = torch.mean(log_diff) ** 2     # ( (1/n) * sum_i d_i )^2
+
+    si_rmse = torch.sqrt(mse - square_mean)
     
-    # Only consider pixels where the mask is True
-    pred = pred_depth[mask]
-    gt = gt_depth[mask]
-    
-    # Convert to log space
-    pred_log = torch.log(pred + 1e-8)
-    gt_log = torch.log(gt + 1e-8)
-    
-    # Calculate difference in log space
-    diff = pred_log - gt_log
-    
-    # Calculate optimal scale factor to align the predictions
-    scale = torch.exp(diff.mean())
-    
-    # Apply scale factor
-    pred_aligned = pred / scale
-    
-    # Calculate RMSE
-    pred_aligned_log = torch.log(pred_aligned + 1e-8)
-    squared_error = (pred_aligned_log - gt_log) ** 2
-    
-    return torch.sqrt(squared_error.mean())
+    return si_rmse
 
 
 def calculate_depth_si_rmse(folder1, folder2):
