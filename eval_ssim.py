@@ -113,7 +113,7 @@ def calculate_blur_ssim(folder1, folder2, blur=False, blur_kernel_size=11):
 
 
 if __name__ == "__main__":
-    folder1 = **
-    folder2 = **
+    folder1 = "/path/to/generated_videos"  # Replace with actual path
+    folder2 = "/path/to/reference_videos"  # Replace with actual path
     ssim_score = calculate_blur_ssim(folder1, folder2, blur=False)
     print(f"(Blur) SSIM score: {ssim_score}")

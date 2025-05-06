@@ -93,8 +93,8 @@ def calculate_edge_f1(folder1, folder2, low_threshold=50, high_threshold=150):
 
 
 if __name__ == "__main__":
-    folder1 = **
-    folder2 = **
+    folder1 = "/path/to/generated_videos"  # Replace with actual path
+    folder2 = "/path/to/reference_videos"  # Replace with actual path
     # the same threshold for canny edge detection
     # threshold values should be set based on the dataset
     f1_result = calculate_edge_f1(folder1, folder2, low_threshold=50, high_threshold=150)
