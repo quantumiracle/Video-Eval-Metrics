@@ -43,16 +43,18 @@ def load_i3d_model(device='cuda'):
         raise
 
 
-def preprocess_video(frames, target_size=(224, 224)):
+def preprocess_video(frames, target_size=(224, 224), clip_len=32, stride=32):
     """
-    Preprocess video frames for I3D model.
+    Preprocess video frames for I3D model and split into clips.
     
     Args:
         frames: Video frames tensor (T, C, H, W)
         target_size: Target size for resizing
+        clip_len: Length of each clip in frames
+        stride: Stride between consecutive clips
         
     Returns:
-        Preprocessed frames (1, C, T, H, W) normalized to [-1, 1]
+        Preprocessed frames (B, C, T, H, W) where B is number of clips
     """
     # Ensure frames have the correct shape (T, C, H, W)
     if frames.shape[1] != 3:
@@ -64,10 +66,17 @@ def preprocess_video(frames, target_size=(224, 224)):
     # Normalize to [-1, 1]
     frames = frames / 127.5 - 1
     
-    # Reshape to (1, C, T, H, W) as expected by I3D
-    frames = frames.permute(1, 0, 2, 3).unsqueeze(0)
+    # Split into clips
+    T = frames.shape[0]
+    clips = []
+    for start in range(0, T - clip_len + 1, stride):
+        clip = frames[start:start + clip_len]  # (clip_len, C, H, W)
+        # Reshape to (1, C, T, H, W) as expected by I3D
+        clip = clip.permute(1, 0, 2, 3).unsqueeze(0)
+        clips.append(clip)
     
-    return frames
+    # Concatenate all clips along batch dimension
+    return torch.cat(clips, dim=0)  # (B, C, T, H, W)
 
 
 def extract_features(model, video_frames, batch_size=16, device='cuda'):
@@ -88,8 +97,8 @@ def extract_features(model, video_frames, batch_size=16, device='cuda'):
     
     # Extract features
     with torch.no_grad():
-        features = model.extract_features(frames) # (1, 1024, T, 1, 1)
-        features = torch.mean(features, dim=[2, 3, 4])  # (1, 1024)
+        features = model.extract_features(frames) # (B, 1024, T, 1, 1)
+        features = torch.mean(features, dim=[2, 3, 4])  # (B, 1024)
     
     return features.cpu().numpy()
 
